@@ -1,6 +1,5 @@
 package com.example.tdd.membership.repository;
 
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +26,7 @@ public class MembershipRepositoryTest {
         //given
         final Membership membership = Membership.builder()
             .userId("userId")
-            .membershipName(MembershipType.NAVER)
+            .membershipType(MembershipType.NAVER)
             .point(10000)
             .build();
 
@@ -44,11 +43,21 @@ public class MembershipRepositoryTest {
     @Test
     public void 멤버십이존재하는지테스트() {
         //given
-
+        Membership membership = Membership.builder()
+            .userId("testId")
+            .membershipType(MembershipType.KAKAO)
+            .point(10000)
+            .build();
 
         //when
+        membershipRepository.save(membership);
+        final Membership findResult = membershipRepository.findByUserIdAndMembershipType("testId", MembershipType.KAKAO);
 
         //then
+        assertThat(findResult.getId()).isNotNull();
+        assertThat(findResult.getUserId()).isEqualTo("testId");
+        assertThat(findResult.getMembershipType()).isEqualTo(MembershipType.KAKAO);
+        assertThat(findResult.getPoint()).isEqualTo(10000);
     }
 
 }
