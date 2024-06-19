@@ -1,9 +1,12 @@
 package com.example.tdd.membership.controller;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.stream.Stream;
 
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,9 +27,12 @@ import com.example.tdd.common.GlobalExceptionHandler;
 import com.example.tdd.common.constant.MembershipErrorResult;
 import com.example.tdd.common.constant.MembershipType;
 import com.example.tdd.exception.MembershipException;
+import com.example.tdd.membership.dto.MembershipDetailResponse;
 import com.example.tdd.membership.dto.MembershipRequest;
-import com.example.tdd.membership.dto.MembershipResponse;
+import com.example.tdd.membership.dto.MembershipAddResponse;
+import com.example.tdd.membership.entity.Membership;
 import com.example.tdd.membership.service.MembershipService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 
 import static com.example.tdd.common.constant.MembershipConstatns.*;
@@ -192,12 +198,12 @@ public class MembershipControllerTest {
 
         // given
         final String url = "/api/v1/memberships";
-        final MembershipResponse membershipResponse = MembershipResponse.builder()
+        final MembershipAddResponse membershipAddResponse = MembershipAddResponse.builder()
             .id(-1L)
             .membershipType(MembershipType.NAVER)
             .build();
 
-        doReturn(membershipResponse).when(membershipService).addMembership("12345", MembershipType.NAVER, 10000);
+        doReturn(membershipAddResponse).when(membershipService).addMembership("12345", MembershipType.NAVER, 10000);
 
         // when
         final ResultActions resultActions = mockMvc.perform(
@@ -210,11 +216,123 @@ public class MembershipControllerTest {
         // then
         resultActions.andExpect(status().isCreated());
 
-        final MembershipResponse response = gson.fromJson(
+        final MembershipAddResponse response = gson.fromJson(
             resultActions.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8),
-            MembershipResponse.class);
+            MembershipAddResponse.class);
 
         assertThat(response.getMembershipType()).isEqualTo(MembershipType.NAVER);
         assertThat(response.getId()).isNotNull();
+    }
+
+    @Test
+    public void 멤버십목록조회실패_사용자식별값없음() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships";
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            MockMvcRequestBuilders.get(url)
+        );
+
+        // then
+        resultActions.andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void 멤버십목록조회성공() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships";
+        doReturn(Arrays.asList(
+            Membership.builder().build(),
+            Membership.builder().build(),
+            Membership.builder().build()
+        )).when(membershipService).getMembershipList("12345");
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            MockMvcRequestBuilders.get(url)
+                .header(USER_ID_HEADER, "12345")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(status().isOk());
+    }
+
+    @Test
+    public void 멤버십상세조회실패_멤버십이없음() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/-1";
+        doThrow(new MembershipException(MembershipErrorResult.MEMBERSHIP_NOT_FOUND))
+            .when(membershipService)
+            .getMembership(-1L, "12345");
+
+        // when
+        final ResultActions result = mockMvc.perform(
+            MockMvcRequestBuilders.get(url)
+                .header(USER_ID_HEADER, "12345")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        result.andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void 멤버십상세조회실패_헤더값누락() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/1";
+
+        // when
+        ResultActions resultActions = mockMvc.perform(
+            MockMvcRequestBuilders.get(url)
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        resultActions.andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void 멤버십상세조회성공() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/1";
+        doReturn(MembershipDetailResponse.builder()
+            .id(1L)
+            .membershipType(MembershipType.KAKAO)
+            .point(10000)
+            .createdAt(LocalDateTime.now())
+            .build()
+        ).when(membershipService).getMembership(1L, "userId");
+
+        // when
+        final ResultActions resultActions = mockMvc.perform(
+            MockMvcRequestBuilders.get(url)
+                .header(USER_ID_HEADER, "userId")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+
+        resultActions.andExpect(status().isOk());
+
+        // String contentAsString = resultActions.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        // System.out.println(contentAsString);
+        //
+        // // MembershipDetailResponse result = objectMapper.readValue(contentAsString,
+        // //     MembershipDetailResponse.class);
+        // MembershipDetailResponse result = gson.fromJson(contentAsString,
+        //     MembershipDetailResponse.class);
+        //
+        //
+        //
+        // assertThat(result.getId()).isEqualTo(1L);
+        // assertThat(result.getMembershipType()).isEqualTo(MembershipType.KAKAO);
+        // assertThat(result.getPoint()).isEqualTo(10000);
     }
 }
