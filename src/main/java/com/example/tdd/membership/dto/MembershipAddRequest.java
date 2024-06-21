@@ -14,6 +14,9 @@ public class MembershipAddRequest {
         this.amount = amount;
     }
 
+    public MembershipAddRequest() {
+    }
+
     @NotNull
     @Min(0)
     private Integer amount;

@@ -448,21 +448,33 @@ public class MembershipControllerTest {
                 // .content(objectMapper.writeValueAsString(membershipAddRequest(-10000)))
                 .contentType(MediaType.APPLICATION_JSON)
         );
-
-        System.out.println(result.andReturn().getResponse().getContentAsString());
         // then
         result.andExpect(status().isBadRequest());
-    }
-
-    private MembershipRequest membershipRequest(final Integer amount) {
-        return MembershipRequest.builder()
-            .point(amount)
-            .build();
     }
 
     private MembershipAddRequest membershipAddRequest(final Integer amount) {
         return MembershipAddRequest.builder()
             .amount(amount)
             .build();
+    }
+
+    @Test
+    public void 멤버십적립성공() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/1/points";
+
+        // when
+        final ResultActions result = mockMvc.perform(
+            MockMvcRequestBuilders.post(url)
+                .header(USER_ID_HEADER, "userId")
+                .content(gson.toJson(membershipAddRequest(1000)))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        System.out.println(result.andReturn().getResponse().getContentAsString());
+
+        // then
+        result.andExpect(status().isNoContent());
     }
 }
