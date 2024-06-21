@@ -27,6 +27,7 @@ import com.example.tdd.common.GlobalExceptionHandler;
 import com.example.tdd.common.constant.MembershipErrorResult;
 import com.example.tdd.common.constant.MembershipType;
 import com.example.tdd.exception.MembershipException;
+import com.example.tdd.membership.dto.MembershipAddRequest;
 import com.example.tdd.membership.dto.MembershipDetailResponse;
 import com.example.tdd.membership.dto.MembershipRequest;
 import com.example.tdd.membership.dto.MembershipAddResponse;
@@ -52,9 +53,12 @@ public class MembershipControllerTest {
     private MockMvc mockMvc;
     private Gson gson;
 
+    private ObjectMapper objectMapper;
+
     @BeforeEach
     public void init() {
         gson = new Gson();
+        objectMapper = new ObjectMapper();
         mockMvc = MockMvcBuilders.standaloneSetup(target)
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
@@ -104,6 +108,8 @@ public class MembershipControllerTest {
                 .content(gson.toJson(membershipRequest(point, membershipType)))
                 .contentType(MediaType.APPLICATION_JSON)
         );
+
+        System.out.println(resultActions.andReturn().getResponse().getContentAsString());
 
         // then
         resultActions.andExpect(status().isBadRequest());
@@ -334,5 +340,129 @@ public class MembershipControllerTest {
         // assertThat(result.getId()).isEqualTo(1L);
         // assertThat(result.getMembershipType()).isEqualTo(MembershipType.KAKAO);
         // assertThat(result.getPoint()).isEqualTo(10000);
+    }
+
+    @Test
+    public void 멤버십삭제실패_헤더없음() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/1";
+
+        // when
+        final ResultActions result = mockMvc.perform(
+            MockMvcRequestBuilders.delete(url)
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        result.andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void 멤버십삭제실패_멤버십없음() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/-1";
+        doThrow(new MembershipException(MembershipErrorResult.MEMBERSHIP_NOT_FOUND))
+            .when(membershipService)
+            .deleteMembership(-1L, "userId");
+
+        // when
+        final ResultActions result = mockMvc.perform(
+            MockMvcRequestBuilders.delete(url)
+                .header(USER_ID_HEADER, "userId")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        result.andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void 멤버십삭제실패_주인이아님() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/1";
+        doThrow(new MembershipException(MembershipErrorResult.NOT_MEMBERSHIP_OWNER))
+            .when(membershipService)
+            .deleteMembership(1L, "userId");
+
+        // when
+        final ResultActions result = mockMvc.perform(
+            MockMvcRequestBuilders.delete(url)
+                .header(USER_ID_HEADER, "userId")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        result.andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void 멤버십삭제성공() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/1";
+
+        // when
+        final ResultActions result = mockMvc.perform(
+            MockMvcRequestBuilders.delete(url)
+                .header(USER_ID_HEADER, "userId")
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        // then
+        result.andExpect(status().isNoContent());
+    }
+
+    @Test
+    public void 멤버십적립실패_사용자식별실패() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/1/points";
+
+        // when
+        final ResultActions result = mockMvc.perform(
+            MockMvcRequestBuilders.post(url)
+                .content(gson.toJson(membershipAddRequest(10000)))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        System.out.println(result.andReturn().getResponse().getContentAsString());
+
+        // then
+        result.andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void 멤버십적립실패_금액이음수() throws Exception {
+
+        // given
+        final String url = "/api/v1/memberships/1/points";
+
+        // when
+        final ResultActions result = mockMvc.perform(
+            MockMvcRequestBuilders.post(url)
+                .header(USER_ID_HEADER, "userId")
+                .content(gson.toJson(membershipAddRequest(-10000)))
+                // .content(objectMapper.writeValueAsString(membershipAddRequest(-10000)))
+                .contentType(MediaType.APPLICATION_JSON)
+        );
+
+        System.out.println(result.andReturn().getResponse().getContentAsString());
+        // then
+        result.andExpect(status().isBadRequest());
+    }
+
+    private MembershipRequest membershipRequest(final Integer amount) {
+        return MembershipRequest.builder()
+            .point(amount)
+            .build();
+    }
+
+    private MembershipAddRequest membershipAddRequest(final Integer amount) {
+        return MembershipAddRequest.builder()
+            .amount(amount)
+            .build();
     }
 }

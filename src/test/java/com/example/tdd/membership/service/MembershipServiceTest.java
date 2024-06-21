@@ -34,6 +34,9 @@ public class MembershipServiceTest {
     @Mock
     private MembershipRepository membershipRepository;
 
+    @Mock
+    private PointService ratePointService;
+
     private final String userId = "userId";
     private final MembershipType membershipType = MembershipType.KAKAO;
     private final Integer point = 10000;
@@ -180,5 +183,53 @@ public class MembershipServiceTest {
 
         // then
 
+    }
+
+    @Test
+    public void 포인트적립실패_멤버십이존재하지않음() {
+
+        // given
+        doReturn(Optional.empty())
+            .when(membershipRepository)
+            .findById(1L);
+
+        // when
+        final MembershipException result = assertThrows(MembershipException.class,
+            () -> target.accmulateMembershipPoint(membershipId, userId, point));
+
+        // then
+        assertThat(result.getErrorResult()).isEqualTo(MembershipErrorResult.MEMBERSHIP_NOT_FOUND);
+    }
+
+    @Test
+    public void 포인트적립실패_멤버십주인이아님() {
+
+        // given
+        final Membership membership = membership();
+        doReturn(Optional.of(membership))
+            .when(membershipRepository)
+            .findById(membershipId);
+
+        // when
+        final MembershipException result = assertThrows(MembershipException.class,
+            () -> target.accmulateMembershipPoint(membershipId, "12345", 1000));
+
+        // then
+        assertThat(result.getErrorResult()).isEqualTo(MembershipErrorResult.NOT_MEMBERSHIP_OWNER);
+    }
+
+    @Test
+    public void 포인트적립성공() {
+
+        // given
+        final Membership membership = membership();
+        doReturn(Optional.of(membership))
+            .when(membershipRepository)
+            .findById(membershipId);
+
+        // when
+        target.accmulateMembershipPoint(membershipId, userId, 10000);
+
+        // then
     }
 }

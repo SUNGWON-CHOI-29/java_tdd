@@ -8,6 +8,7 @@ import com.example.tdd.common.domain.Common;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 import jakarta.persistence.Entity;
@@ -34,5 +35,6 @@ public class Membership extends Common implements Serializable {
     @Enumerated(EnumType.STRING)
     private MembershipType membershipType;
 
+    @Setter
     private Integer point;
 }

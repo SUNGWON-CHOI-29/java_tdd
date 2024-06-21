@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.tdd.common.constant.MembershipErrorResult;
 import com.example.tdd.common.constant.MembershipType;
@@ -17,11 +18,14 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class MembershipService {
 
+    private final PointService ratePointService;
     private final MembershipRepository membershipRepository;
 
-    public MembershipAddResponse addMembership(final String userId, final MembershipType membershipType, final Integer point) {
+    public MembershipAddResponse addMembership(final String userId, final MembershipType membershipType,
+        final Integer point) {
         final Membership result = membershipRepository.findByUserIdAndMembershipType(userId,
             membershipType);
 
@@ -48,17 +52,18 @@ public class MembershipService {
         List<Membership> membershipList = membershipRepository.findAllByUserId(userId);
         return membershipList.stream()
             .map(membership -> MembershipDetailResponse.builder()
-                    .id(membership.getId())
-                    .membershipType(membership.getMembershipType())
-                    .point(membership.getPoint())
-                    .createdAt(membership.getCreatedAt())
-                    .build())
+                .id(membership.getId())
+                .membershipType(membership.getMembershipType())
+                .point(membership.getPoint())
+                .createdAt(membership.getCreatedAt())
+                .build())
             .toList();
     }
 
     public MembershipDetailResponse getMembership(final Long membershipId, final String userId) {
         final Optional<Membership> optionalMembership = membershipRepository.findById(membershipId);
-        final Membership membership = optionalMembership.orElseThrow(() -> new MembershipException(MembershipErrorResult.MEMBERSHIP_NOT_FOUND));
+        final Membership membership = optionalMembership.orElseThrow(
+            () -> new MembershipException(MembershipErrorResult.MEMBERSHIP_NOT_FOUND));
 
         if (!membership.getUserId().equals(userId)) {
             throw new MembershipException(MembershipErrorResult.NOT_MEMBERSHIP_OWNER);
@@ -81,5 +86,31 @@ public class MembershipService {
             throw new MembershipException(MembershipErrorResult.NOT_MEMBERSHIP_OWNER);
         }
 
+    }
+
+    public void deleteMembership(Long membershipId, String userId) {
+        Optional<Membership> optionalMembership = membershipRepository.findById(membershipId);
+        Membership membership = optionalMembership.orElseThrow(
+            () -> new MembershipException(MembershipErrorResult.MEMBERSHIP_NOT_FOUND));
+
+        if (!membership.getUserId().equals(userId)) {
+            throw new MembershipException(MembershipErrorResult.NOT_MEMBERSHIP_OWNER);
+        }
+        membershipRepository.deleteById(membershipId);
+    }
+
+    @Transactional
+    public void accmulateMembershipPoint(Long membershipId, String userId, Integer amount) {
+        Optional<Membership> optionalMembership = membershipRepository.findById(membershipId);
+        Membership membership = optionalMembership.orElseThrow( () ->
+            new MembershipException(MembershipErrorResult.MEMBERSHIP_NOT_FOUND));
+
+        if (!membership.getUserId().equals(userId)) {
+            throw new MembershipException(MembershipErrorResult.NOT_MEMBERSHIP_OWNER);
+        }
+
+        int additionalAmount = ratePointService.calculateAmount(amount);
+
+        membership.setPoint(additionalAmount + membership.getPoint());
     }
 }
